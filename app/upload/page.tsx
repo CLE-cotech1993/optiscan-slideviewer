@@ -10,6 +10,32 @@ export default function UploadPage() {
   const [caseId, setCaseId] = useState('')
   const [status, setStatus] = useState('')
 
+  function pollStatus(slideId: string) {
+    const interval = setInterval(async () => {
+      const { data, error } = await supabase
+        .from('slides')
+        .select('status')
+        .eq('id', slideId)
+        .single()
+
+      if (error) {
+        setStatus('Polling error: ' + error.message)
+        clearInterval(interval)
+        return
+      }
+
+      if (data.status === 'tiled') {
+        setStatus('Uploaded and tiled successfully!')
+        clearInterval(interval)
+      } else if (data.status === 'error') {
+        setStatus('Tiling failed on the worker. Check Railway logs for details.')
+        clearInterval(interval)
+      } else {
+        setStatus(`Tiling in progress (status: ${data.status})...`)
+      }
+    }, 4000)
+  }
+
   async function handleUpload() {
     if (!file) return
     setStatus('Saving record...')
@@ -49,7 +75,7 @@ export default function UploadPage() {
       return
     }
 
-    setStatus('Uploaded. Tiling now, this can take a minute or two for a real slide...')
+    setStatus('Starting tiling...')
 
     try {
       const res = await fetch(WORKER_URL, {
@@ -57,12 +83,13 @@ export default function UploadPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ record: updated }),
       })
-      const result = await res.json()
       if (!res.ok) {
-        setStatus('Tiling error: ' + (result.error || 'unknown'))
+        const result = await res.json().catch(() => ({}))
+        setStatus('Could not start tiling: ' + (result.error || res.statusText))
         return
       }
-      setStatus('Uploaded and tiled successfully!')
+      setStatus('Tiling started, checking progress...')
+      pollStatus(updated.id)
     } catch (err) {
       setStatus('Could not reach tiling worker: ' + String(err))
     }
