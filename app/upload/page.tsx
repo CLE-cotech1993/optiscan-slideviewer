@@ -12,16 +12,7 @@ export default function UploadPage() {
 
   async function handleUpload() {
     if (!file) return
-    setStatus('Uploading...')
-
-    const { error: storageError } = await supabase.storage
-      .from('raw-slides')
-      .upload(file.name, file)
-
-    if (storageError) {
-      setStatus('Storage error: ' + storageError.message)
-      return
-    }
+    setStatus('Saving record...')
 
     const { data: inserted, error: dbError } = await supabase
       .from('slides')
@@ -34,13 +25,37 @@ export default function UploadPage() {
       return
     }
 
-    setStatus('Uploaded. Tiling now — this can take a minute or two for a real slide...')
+    const storagePath = `${inserted.id}/${file.name}`
+
+    setStatus('Uploading...')
+    const { error: storageError } = await supabase.storage
+      .from('raw-slides')
+      .upload(storagePath, file, { upsert: true })
+
+    if (storageError) {
+      setStatus('Storage error: ' + storageError.message)
+      return
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('slides')
+      .update({ file_name: storagePath })
+      .eq('id', inserted.id)
+      .select()
+      .single()
+
+    if (updateError || !updated) {
+      setStatus('Database update error: ' + (updateError?.message || 'unknown'))
+      return
+    }
+
+    setStatus('Uploaded. Tiling now, this can take a minute or two for a real slide...')
 
     try {
       const res = await fetch(WORKER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ record: inserted }),
+        body: JSON.stringify({ record: updated }),
       })
       const result = await res.json()
       if (!res.ok) {
