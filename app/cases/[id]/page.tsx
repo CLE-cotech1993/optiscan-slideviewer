@@ -51,7 +51,6 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
   const [rationale, setRationale] = useState('')
   const [log, setLog] = useState<CorrelationRow[]>([])
 
-  // ---- load manifest + existing log ----
   useEffect(() => {
     async function load() {
       const url = `${SUPABASE_URL}/storage/v1/object/public/tiles/${id}/manifest.json`
@@ -83,7 +82,6 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
     loadLog()
   }, [id])
 
-  // ---- tile helpers ----
   function pickLevel(m: Manifest, scale: number) {
     let best = m.levels[m.levels.length - 1]
     for (const lvl of [...m.levels].sort((a, b) => a.level - b.level)) {
@@ -104,7 +102,6 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
     return null
   }
 
-  // ---- render loop ----
   const render = useCallback(() => {
     const canvas = canvasRef.current
     const m = manifest
@@ -207,7 +204,6 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
     }
   }
 
-  // ---- resize + initial render ----
   useEffect(() => {
     function resize() {
       const canvas = canvasRef.current
@@ -224,7 +220,6 @@ export default function CasePage({ params }: { params: Promise<{ id: string }> }
 
   useEffect(() => { render() }, [manifest, box, render])
 
-  // ---- interactions ----
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault()
     const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
